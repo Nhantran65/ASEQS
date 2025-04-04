@@ -15,3 +15,13 @@ class MessageResponse(MessageBase):
 
     class Config:
         orm_mode = True
+
+
+class CodeAnalysisRequest(BaseModel):
+    filename: str
+    source_code: str
+    sonar_output: str
+    codescene_output: str
+
+class CodeAnalysisResponse(BaseModel):
+    llm_feedback: str

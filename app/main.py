@@ -59,3 +59,33 @@ def read_message(msg_id: int, db: Session = Depends(get_db)):
 @app.get("/messages/", response_model=list[schemas.MessageResponse])
 def read_all_messages(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     return db.query(models.Message).offset(skip).limit(limit).all()
+
+@app.post("/analyze-code/", response_model=schemas.CodeAnalysisResponse)
+async def analyze_code(req: schemas.CodeAnalysisRequest, db: Session = Depends(get_db)):
+    # Prompt gửi tới LLM để phân tích
+    prompt = f"""
+You are a code quality reviewer. Analyze the following Python source code.
+- Identify any code quality issues (including ones not flagged by SonarQube or CodeScene).
+- Suggest improvements.
+- Mention any potential bugs, security issues, or code smells.
+- SonarQube Report: {req.sonar_output}
+- CodeScene Report: {req.codescene_output}
+
+Source Code:
+{req.source_code}
+"""
+    llm_result = await send_to_llm("user", prompt)
+
+    # Lưu kết quả vào DB
+    record = models.AnalysisResult(
+        filename=req.filename,
+        source_code=req.source_code,
+        sonar_output=req.sonar_output,
+        codescene_output=req.codescene_output,
+        llm_feedback=llm_result
+    )
+    db.add(record)
+    db.commit()
+    db.refresh(record)
+
+    return {"llm_feedback": llm_result}
